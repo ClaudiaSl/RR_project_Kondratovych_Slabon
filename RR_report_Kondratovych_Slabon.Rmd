@@ -142,3 +142,39 @@ ggarrange(ggarrange(plot_unemp19, plot_unemp20, ncol = 2),
           plot_unem_1920_diff, 
           nrow = 2)
 ```
+# COVID-19 spread during 2020
+
+```{r worldmap, echo=FALSE, fig.align='center'}
+
+world <- ggplot() +
+  borders("world", colour = "gray85", fill = "gray80") +
+  theme_map()
+map <- world +
+  geom_point(aes(x = Longitude, y = Latitude, size = Confirmed), data = data_agg, colour = '#FF8484', alpha = .5) +
+  scale_size_continuous(range =  c(1, 6), 
+                        breaks = c(250, 500, 1000, 10000, 100000, 1000000),
+                        labels = c("250", "500", "1 000", "10 000", "100 000", "1M")) +
+  labs(title = 'COVID-19 spread in 2020',
+       subtitle = 'Week number: {closest_state}',
+       size = 'Confirmed cases') + 
+  theme(plot.title = element_text(hjust = 0.5, face = "bold", size =15),
+        plot.subtitle = element_text(hjust = 0.5, face = "bold", size =12),
+        legend.title = element_text(size=12),
+        legend.text=element_text(size=12),
+        legend.position = c(0, 0.2),
+        legend.background = element_rect(fill="white",
+                                         size=0.5, linetype="solid", 
+                                         colour ="black")) +
+  transition_states(`week(Date)`, wrap = FALSE) +
+  shadow_mark(past=T) +
+  enter_fade() 
+
+animate(map)
+
+```
+
+The map shows the spread of the coronavirus during 2020 (from the 4th week to the end of the year). From the map one can observe that although, the first cases were discover in China, the pandemic rapidly spread around the whole world. Currently, there is 107 270 821 coronavirus cases, 2 345 078 people died and 79 117 673 recovered (02/09/2021 update). \
+Official top 3 countries with highest COVID-19 cases number: \
+- the USA (27 755 037 cases), \
+- India (10 858 300 cases), \
+- Brazil (9 560 362 cases). \
