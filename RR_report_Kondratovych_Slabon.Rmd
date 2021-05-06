@@ -2,34 +2,143 @@
 title: "RR_report_Kondratovych_Slabon"
 author: "Claudia Słaboń, Kateryna Kondratovych"
 date: "5/6/2021"
-output: ioslides_presentation
+output:
+html_document: default
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+```{r libraries, include=FALSE}
+library(ggplot2)
+library(ggthemes)
+library(tibble)
+library(lubridate)
+library(dplyr)
+library(ggpubr)
+library(reshape)
+library(scales)
+library(plotly)
+library(maps)
+library(gganimate)
+library(zoo)
+library(tidyr)
+library(xts)
+library(dygraphs)
+library(RColorBrewer)
+library(rgdal)
+library(sf)
+library(readxl)
+library(viridis)
+library(cowplot)
+library(forecast)
 ```
 
-## R Markdown
+## COVID-19 and it’s impact on unemployment rate
 
-This is an R Markdown presentation. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+The first cases of COVID-19 comes from China (Wuhan) and were discovered in November 2019. From the beginning of the 2020 new outbreaks of the coronavirus have started to appear in other countries. The pandemic spread around the world rapidly. The discovery of the easily contagious virus forced on the world's government to take an fast and unconventional actions. Many countries have closed their borders and introduced lockdown. Due to such actions many economies suffer from a pandemic. \
+The aim of this project is to discover whether the COVID-19 had an impact on unemployment in 2020. Firsly, it will be examined from the point of view of OECD countries, G7 countries, the USA. After that, the situation in Poland will be discussed.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document.
+Dataset sources: \
+- Daily coronavirus dataset comes from Johns Hopkins Coronavirus Resource Center. \
+- Monthly unemployment rate in OECD countries comes from the OECD website. \
+- Poland unemployment rate in voivodships comes from Poland's Central Statistical Office. \
+- Poland map was built from dataset introduced during the classes. \
 
-## Slide with Bullets
-
-- Bullet 1
-- Bullet 2
-- Bullet 3
-
-## Slide with R Output
-
-```{r cars, echo = TRUE}
-summary(cars)
+```{r datasets, echo=FALSE, results='hide'}
+data_covid <- read.csv("Dane/covid-19-all.csv")
+data_unemp <- read.csv("Dane/DP_LIVE_27012021180248760.csv")
+PL_sex <- read.csv('Dane/MW.csv')
+PL_edu <- read.csv('Dane/Pledu.csv',stringsAsFactors = FALSE)
+PL_age <- read.csv('Dane/Pl_age.csv')
+PL_woj <- read.csv('Dane/PL_wojew.csv')
+PL_unemp <- read.csv('Dane/PL_unemp.csv')
+woj_pl <- st_read('Dane/Województwa.shp')
+my_data <- read_excel("Dane/wlis1.xlsx")
 ```
 
-## Slide with Plot
-
-```{r pressure}
-plot(pressure)
+```{r changing, echo=FALSE, results='hide'}
+data_covid$Date <- as.Date(data_covid$Date, format = "%Y-%m-%d")
+data <- data_covid %>%
+  filter(Date < as.Date("2021-01-01"))
+summary(data)
+data_agg <- aggregate(cbind(Confirmed, Recovered, Deaths)~week(Date)+Country.Region+Latitude+Longitude,
+          data=data,FUN=max)
+data_agg$`week(Date)` <- as.numeric(data_agg$`week(Date)`)
+data_agg2 <- aggregate(cbind(Confirmed, Recovered, Deaths)~week(Date)+Country.Region,
+                      data=data,FUN=max)
 ```
 
+# Unemployment rate in OECD countries
+
+The below graphs present the situation of unemployment rate in OECD countries. It means that the unemployment rate is captured in 37 countries.
+
+```{r oecd, echo=FALSE, fig.align='center', results='hide', message = FALSE}
+colnames(data_unemp)[1] <- "Country"
+plot_unemp19 <- data_unemp %>%
+  filter(TIME == '2019-09' & Country != "EU28" & Country != "EA19" & Country != "EU27_2020")%>%
+  select(Country, Value) %>%
+  arrange(desc(Value)) %>%
+  top_n(15) %>%
+  arrange(Value) %>%
+  mutate(Country = factor(Country, levels = .$Country)) %>%
+  ggplot(aes(x=Country, y=Value)) +
+  geom_segment( aes(x=Country, xend=Country, y=0, yend=Value), color="black") +
+  scale_y_continuous(labels=function(x) paste0(x,"%")) +
+  geom_point( color="skyblue", size=4) +
+  theme_light() +
+  coord_flip() +
+  labs(title="Highest unemployment rate in 09/2019")+
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    plot.title = element_text(hjust = 0.5))
+plot_unemp20 <- 
+ data_unemp %>%
+  filter(TIME == "2020-09" & Country != "EU28" & Country != "EA19" & Country != "EU27_2020" & Country != "OECD")%>%
+  select(Country, Value) %>%
+  arrange(desc(Value)) %>%
+  top_n(15) %>%
+  arrange(Value) %>%
+  mutate(Country = factor(Country, levels = .$Country)) %>%
+  ggplot(aes(x=Country, y=Value)) +
+  geom_segment( aes(x=Country, xend=Country, y=0, yend=Value), color="black") +
+  scale_y_continuous(labels=function(x) paste0(x,"%")) +
+  geom_point( color="skyblue", size=4) +
+  theme_light() +
+  coord_flip() +
+  labs(title="Highest unemployment rate in 09/2020")+
+  theme(
+    panel.grid.major.y = element_blank(),
+    panel.border = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    plot.title = element_text(hjust = 0.5))
+plot_unem_1920_diff <- data_unemp %>%
+  filter(TIME == "2019-09" | TIME == "2020-09") %>%
+  select(Country,TIME, Value) %>%
+  cast(Country~TIME) %>%
+  filter(Country != "G-7" & Country != "EU28" & Country != "EA19" & Country != "EU27_2020" & Country != "OECD") %>%
+  mutate(diff=`2020-09` - `2019-09`) %>%
+  arrange(desc(diff)) %>%
+  mutate(Country = factor(Country, levels = .$Country)) %>%
+  top_n(15) %>%
+  ggplot(aes(x = factor(Country), y = diff)) +
+  geom_bar(na.rm = TRUE, width = 0.7, stat = "identity", aes(fill = diff))+
+  expand_limits(y = c(0, 6.5)) +
+  geom_text(aes(label = paste0(round(diff,1),"%")), vjust=-0.25, size =3) +
+  scale_y_continuous(labels=function(x) paste0(x,"%")) +
+  scale_fill_gradient2(low='lightblue', mid='lightblue', high='#1167b1') +
+  labs(title = "The greatest change in unemployment rate between 09/2019 and 09/2020",
+       caption = "Data comes from OECD which monitores unemployment in 37 countries.") +
+  theme(legend.title = element_blank(),
+        legend.position = "none",
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        plot.title = element_text(hjust = 0.5),
+        plot.caption = element_text(hjust = 0))
+ggarrange(ggarrange(plot_unemp19, plot_unemp20, ncol = 2),
+          plot_unem_1920_diff, 
+          nrow = 2)
+```
