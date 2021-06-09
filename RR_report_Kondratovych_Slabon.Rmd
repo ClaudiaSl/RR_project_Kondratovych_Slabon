@@ -55,7 +55,6 @@ Dataset sources: \
 <font>
 ```{r datasets, echo=FALSE, results='hide'}
 # Datasets that should be updated
-data_covid <- read.csv("Dane/covid-19-all.csv")
 data_unemp <- read.csv("Dane/DP_LIVE_09062021091719878.csv")
 PL_sex <- read.csv('Dane/MW.csv')
 PL_edu <- read.csv('Dane/Pledu.csv',stringsAsFactors = FALSE)
@@ -120,23 +119,10 @@ Official top 3 countries with **highest** COVID-19 cases number: \
 - `r top_covid_countries[3,1]` (`r toString(top_covid_countries[3,2])` cases). \
 <font>
 ```{r, echo=FALSE, results='hide'}
-# Selecting date of the unemployment analysis in OECD countries.
+# Selecting penultimate date of the unemployment analysis in OECD countries. Choosing penultimate date can prevent from missing data in some countries.
 unemp_analysis_date <- data_unemp %>% select(TIME) %>% distinct() %>% pull(1) %>% sort()
 n <- nth(unemp_analysis_date, -2) 
 n
-```
-
-
-```{r changing, echo=FALSE, results='hide'}
-data_covid$Date <- as.Date(data_covid$Date, format = "%Y-%m-%d")
-data <- data_covid %>%
-  filter(Date < as.Date("2021-01-01"))
-summary(data)
-data_agg <- aggregate(cbind(Confirmed, Recovered, Deaths)~week(Date)+Country.Region+Latitude+Longitude,
-          data=data,FUN=max)
-data_agg$`week(Date)` <- as.numeric(data_agg$`week(Date)`)
-data_agg2 <- aggregate(cbind(Confirmed, Recovered, Deaths)~week(Date)+Country.Region,
-                      data=data,FUN=max)
 ```
 
 # Unemployment rate in OECD countries
@@ -146,8 +132,9 @@ Below graphs present the situation of unemployment rate in OECD countries. It me
 ```{r oecd, echo=FALSE, fig.align='center', results='hide', message = FALSE, fig.width = 8, fig.height = 8}
 colnames(data_unemp)[1] <- "Country"
 
-plot_unemp19 <- data_unemp %>%
-  filter(TIME == nth(unemp_analysis_date, -14) & Country != "EU28" & Country != "EA19" & Country != "EU27_2020")%>%
+# Conducting analysis between 14 months before newest data and penultimate month.
+plot_unemp_previous <- data_unemp %>%
+  filter(TIME == nth(unemp_analysis_date, -14) & Country != "G-7" & Country != "EU28" & Country != "EA19" & Country != "EU27_2020")%>%
   select(Country, Value) %>%
   arrange(desc(Value)) %>%
   top_n(15) %>%
@@ -159,7 +146,7 @@ plot_unemp19 <- data_unemp %>%
   geom_point( color="skyblue", size=4) +
   theme_light() +
   coord_flip() +
-  labs(title="Highest unemployment rate in 09/2019")+
+  labs(title=paste0("Highest unemployment rate in ",nth(unemp_analysis_date, -14)))+
   theme(
     panel.grid.major.y = element_blank(),
     panel.border = element_blank(),
@@ -167,9 +154,10 @@ plot_unemp19 <- data_unemp %>%
     axis.title.x = element_blank(),
     axis.title.y = element_blank(),
     plot.title = element_text(hjust = 0.5))
-plot_unemp20 <- 
+
+plot_unemp_current <- 
  data_unemp %>%
-  filter(TIME == "2020-09" & Country != "EU28" & Country != "EA19" & Country != "EU27_2020" & Country != "OECD")%>%
+  filter(TIME == nth(unemp_analysis_date, -2) & Country != "G-7" & Country != "EU28" & Country != "EA19" & Country != "EU27_2020" & Country != "OECD")%>%
   select(Country, Value) %>%
   arrange(desc(Value)) %>%
   top_n(15) %>%
@@ -181,7 +169,7 @@ plot_unemp20 <-
   geom_point( color="skyblue", size=4) +
   theme_light() +
   coord_flip() +
-  labs(title="Highest unemployment rate in 09/2020")+
+  labs(title=paste0("Highest unemployment rate in ",nth(unemp_analysis_date, -2)))+
   theme(
     panel.grid.major.y = element_blank(),
     panel.border = element_blank(),
@@ -189,22 +177,23 @@ plot_unemp20 <-
     axis.title.x = element_blank(),
     axis.title.y = element_blank(),
     plot.title = element_text(hjust = 0.5))
-plot_unem_1920_diff <- data_unemp %>%
-  filter(TIME == "2019-09" | TIME == "2020-09") %>%
+
+plot_unem_dates_diff <- data_unemp %>%
+  filter(TIME == nth(unemp_analysis_date, -14) | TIME == nth(unemp_analysis_date, -2)) %>%
   select(Country,TIME, Value) %>%
   cast(Country~TIME) %>%
   filter(Country != "G-7" & Country != "EU28" & Country != "EA19" & Country != "EU27_2020" & Country != "OECD") %>%
-  mutate(diff=`2020-09` - `2019-09`) %>%
+  select(1, Previous_date=2, Current_date=3) %>%
+  mutate(diff= abs(Current_date - Previous_date)) %>%
   arrange(desc(diff)) %>%
   mutate(Country = factor(Country, levels = .$Country)) %>%
   top_n(15) %>%
   ggplot(aes(x = factor(Country), y = diff)) +
   geom_bar(na.rm = TRUE, width = 0.7, stat = "identity", aes(fill = diff))+
-  expand_limits(y = c(0, 6.5)) +
   geom_text(aes(label = paste0(round(diff,1),"%")), vjust=-0.25, size =3) +
   scale_y_continuous(labels=function(x) paste0(x,"%")) +
   scale_fill_gradient2(low='lightblue', mid='lightblue', high='#1167b1') +
-  labs(title = "The greatest change in unemployment rate between 09/2019 and 09/2020",
+  labs(title = "The greatest change in unemployment rate between newer and older chosen date",
        caption = "Data comes from OECD which monitores unemployment in 37 countries.") +
   theme(legend.title = element_blank(),
         legend.position = "none",
@@ -212,8 +201,10 @@ plot_unem_1920_diff <- data_unemp %>%
         axis.title.y = element_blank(),
         plot.title = element_text(hjust = 0.5),
         plot.caption = element_text(hjust = 0))
-ggarrange(ggarrange(plot_unemp19, plot_unemp20, ncol = 2),
-          plot_unem_1920_diff, 
+
+# Combining 2 graphs into 1
+ggarrange(ggarrange(plot_unemp_previous, plot_unemp_current, ncol = 2),
+          plot_unem_dates_diff, 
           nrow = 2)
 ```
 
