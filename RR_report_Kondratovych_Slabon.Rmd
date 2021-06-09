@@ -12,7 +12,6 @@ knitr::opts_chunk$set(echo = FALSE)
 
 
 ```{r libraries, include=FALSE}
-library(ggplot2)
 library(ggthemes)
 library(tibble)
 library(lubridate)
@@ -23,22 +22,24 @@ library(scales)
 library(plotly)
 library(maps)
 library(gganimate)
-library(zoo)
-library(tidyr)
-library(xts)
-library(dygraphs)
-library(RColorBrewer)
-library(rgdal)
-library(sf)
-library(readxl)
-library(viridis)
-library(cowplot)
-library(forecast)
 library(tidyverse)
 library(rvest)
 library(rlist)
 library(stringi)
 library(htmltab)
+library(zoo)
+library(dplyr)
+library(tidyr)
+library(xts)
+library(dygraphs)
+library(RColorBrewer)
+library(ggplot2)
+library(rgdal)
+library(sf)
+library(readxl)
+library(viridis)
+library(cowplot)
+library(forecast) 
 
 ```
 
@@ -56,13 +57,23 @@ Dataset sources: \
 ```{r datasets, echo=FALSE, results='hide'}
 # Datasets that should be updated
 data_unemp <- read.csv("Dane/DP_LIVE_09062021091719878.csv")
-PL_sex <- read.csv('Dane/MW.csv')
-PL_edu <- read.csv('Dane/Pledu.csv',stringsAsFactors = FALSE)
-PL_age <- read.csv('Dane/Pl_age.csv')
-PL_woj <- read.csv('Dane/PL_wojew.csv')
-PL_unemp <- read.csv('Dane/PL_unemp.csv')
-woj_pl <- st_read('Dane/Województwa.shp')
-my_data <- read_excel("Dane/wlis1.xlsx")
+data_covid <- read.csv("Dane/covid-19-all.csv")
+
+rate <- read.csv('Dane/MW_new.csv')
+rate <- rate[c(1,3,6,7)]
+rate <- transform(rate, TIME = as.Date(as.yearmon(TIME)))
+
+eduk <- read.csv('Dane/eduk.csv',stringsAsFactors = FALSE)
+eduk <- eduk[c(1,3,6,7)]
+eduk <- transform(eduk, TIME = as.Date(as.yearmon(TIME)))
+
+agek <- read.csv('Dane/agek.csv')
+agek <- agek[c(1,3,6,7)]
+agek <- transform(agek, TIME = as.Date(as.yearmon(TIME)))
+
+unemp <- read.csv('Dane/unemp.csv')
+unemp <- unemp[c(1,6,7)]
+unemp <- transform(unemp, TIME = as.Date(as.yearmon(TIME)))
 ```
 
 # COVID-19 spread
@@ -208,3 +219,145 @@ ggarrange(ggarrange(plot_unemp_previous, plot_unemp_current, ncol = 2),
           nrow = 2)
 ```
 
+# Country-specific unemployment rate
+<font size="4">
+One can chose any country and get country-specific report
+<font>
+```{r pressure, echo=FALSE,results='hide'}
+country="POL"
+rate <- read.csv('Dane/MW_new.csv')
+rate <- rate[c(1,3,6,7)]
+rate <- transform(rate, TIME = as.Date(as.yearmon(TIME)))
+
+eduk <- read.csv('Dane/eduk.csv',stringsAsFactors = FALSE)
+eduk <- eduk[c(1,3,6,7)]
+eduk <- transform(eduk, TIME = as.Date(as.yearmon(TIME)))
+
+agek <- read.csv('Dane/agek.csv')
+agek <- agek[c(1,3,6,7)]
+agek <- transform(agek, TIME = as.Date(as.yearmon(TIME)))
+
+unemp <- read.csv('Dane/unemp.csv')
+unemp <- unemp[c(1,6,7)]
+unemp <- transform(unemp, TIME = as.Date(as.yearmon(TIME)))
+unemp<-subset(unemp, unemp$LOCATION==country)
+unemp <- xts(unemp$Value,unemp$TIME)
+
+unique(rate$X.LOCATION)
+wide_DF<-subset(rate, rate$X.LOCATION==country)
+wide_DF <- wide_DF %>% spread(SUBJECT, Value)
+head(wide_DF, 24)
+MEN <- xts(wide_DF$MEN, wide_DF$TIME)
+WOMEN <- xts(wide_DF$WOMEN, wide_DF$TIME)
+mw <-cbind(MEN, WOMEN)
+
+eduk<-subset(eduk, eduk$LOCATION==country)
+agek<-subset(agek, agek$LOCATION==country)
+
+a <- dygraph(mw, main = paste("Unemployment rate in",country)) %>%
+  dySeries("MEN", axis = "y2") %>%
+  dyAxis(name = "y",independentTicks = T,
+         axisLabelFormatter = "function(num){return num.toLocaleString() + '%'}",
+         valueFormatter = "function(num){return num.toLocaleString() + '%'}") %>%
+  dyAxis(name = "y2", independentTicks = T,drawGrid = T,
+         axisLabelFormatter = "function(num){return num.toLocaleString() + '%'}",
+         valueFormatter = "function(num){return num.toLocaleString() + '%'}") %>%
+  dyEvent("2019-12-31", "First COVID case in world", labelLoc = "bottom") %>%
+  dyEvent("2008-09-15", "Bankruptcy of Lehman Brothers", labelLoc = "bottom") %>%
+  dyRangeSelector(dateWindow = c("2019-01-01", "2020-12-31"), fillColor = "#7570B3") %>%
+  dyOptions(colors = RColorBrewer::brewer.pal(3, "Dark2"), axisLineColor = "navy", 
+            gridLineColor = "lightblue")
+
+```
+
+```{r a, echo=FALSE}
+a
+```
+
+```{r pro, echo=FALSE,results='hide'}
+edu <-eduk %>%
+  ggplot(aes(x = TIME, y = Value, color = SUBJECT)) +
+  geom_line(size=1)+ theme_light() +
+  scale_color_brewer(palette = "Dark2",labels = c("Below upper secondary", "Tertiary", "Upper secondary")) +
+  labs(x = "Year", y = "Unemployment Rate",
+       title = paste("By education level(",country,")"))+
+  theme(plot.title = element_text(hjust = 1, size = 19, face = "bold.italic"),
+        axis.title.x = element_text(size = 10, face = "bold.italic"),
+        axis.title.y = element_text(size = 10, face = "bold.italic"),
+        legend.title = element_blank(),
+        legend.position = "bottom") +
+  scale_y_continuous(label = function(x) {return(paste(x, "%"))})
+
+
+age <- agek %>%
+  ggplot(aes(x = TIME, y = Value, color = SUBJECT))  +
+  geom_line(size=1)+ theme_light() +
+  scale_color_brewer(palette = "Dark2", labels= c("15-24","25-74")) +
+  labs(x = "Year", y = "Unemployment Rate",
+       title = paste("By age(",country, ")"))+
+  theme(plot.title = element_text(hjust = 1, size = 19, face = "bold.italic"),
+        axis.title.x = element_text(size = 10, face = "bold.italic"),
+        axis.title.y = element_text(size = 10, face = "bold.italic"),
+        legend.title = element_blank(),
+        legend.position = "bottom") +
+  scale_y_continuous(label = function(x) {return(paste(x, "%"))})
+
+mycolors = c(brewer.pal(name="Dark2", n = 8), brewer.pal(name="Paired", n = 8))
+```
+
+```{r final graphs, echo=FALSE}
+plot_grid(edu, age,rel_heights = c(1.9,2) )
+```
+
+## Forecast
+
+We also did some forecasting using ARIMA. We used function auto-arima to find the best parameters.
+```{r f, echo=FALSE}
+head(unemp)
+UR_ts <- ts(unemp[, 1], start = c(1997, 1), frequency = 12)
+autoplot(UR_ts)
+autoplot(diff(UR_ts))
+ggAcf(diff(UR_ts))
+
+# Find value for lamda to transform data and stablize variance
+# See DataCamp/Forecasting Using R/Forecasting with ARIMA/Transformation for variance stabilization
+# Lamda should range bt -1 (strong transformation, inverse) and 1 (no transformation)
+bc<-BoxCox.lambda(UR_ts)
+bc
+ifelse(bc>-1&bc<1,"ok","not ok")
+# Fit a seasonal ARIMA model 
+fit1 <- auto.arima(UR_ts, trace =TRUE)
+fit2 <- auto.arima(UR_ts, stepwise = FALSE) 
+# stepwise = FALSE to make auto.arima() work harder to find a good model from a larger collection of models
+
+# Summarize the fitted model
+summary(fit1)
+summary(fit2)
+
+with_theme_light <- function(expr) {
+  orig <- theme_get()
+  theme_set(theme_cowplot())
+  force(expr)
+  theme_set(orig)
+}
+
+with_theme_light(checkresiduals(fit1, color = "red", size =2))
+with_theme_light(checkresiduals(fit2, color = "red", size =2))
+checkresiduals(fit1)
+checkresiduals(fit2)
+
+# Plot 2-year forecasts
+fit1 %>% forecast(h = 24)
+
+fit2 %>% forecast(h = 24)
+
+arima1 <- fit1 %>% forecast(h = 24) %>% autoplot() + theme_cowplot() + xlab("Date") + ylab("Unemployment Rate")+
+  scale_y_continuous(limits = c(0, NA), label = function(x) {return(paste(x, "%"))})
+arima2 <- fit2 %>% forecast(h = 24) %>% autoplot() + theme_cowplot() + xlab("Date") + ylab("Unemployment Rate")+
+  scale_y_continuous(limits = c(0, NA), label = function(x) {return(paste(x, "%"))})
+
+plot_grid(arima1, arima2)
+```
+
+We can see that the residuals are normally distributed and we can forecast.
+By both models unemployment will go down and it is in line with our expectations.
