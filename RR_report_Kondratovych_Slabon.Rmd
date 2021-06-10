@@ -54,6 +54,7 @@ Dataset sources: \
 ```{r datasets, echo=FALSE, results='hide'}
 # Dataset that should be updated
 data_unemp <- read.csv("Dane/DP_LIVE_09062021091719878.csv")
+#data_unemp <- read.csv("Dane/DP_LIVE_27012021180248760.csv")
 
 rate <- read.csv('Dane/MW_new.csv')
 rate <- rate[c(1,3,6,7)]
@@ -324,7 +325,7 @@ In our opinion the most interesting situation is in `r top_covid_countries[1,1]`
 
 # Unemployment rate in EU countries and Poland
 
-The below graph can easily reflect the situation of Poland in comparison to the European Union countries during timeframe from `r nth(unemp_analysis_date, -3)` to `r nth(unemp_analysis_date, -15)`. 
+The below graph can easily reflect the situation of Poland in comparison to the European Union countries during timeframe from `r nth(unemp_analysis_date, -15)` to `r nth(unemp_analysis_date, -3)`. 
 
 ```{r, echo=FALSE, fig.align='center', fig.width = 9, fig.height = 6}
 # Grph showing unemployment rate in EU and Poland
@@ -382,7 +383,7 @@ During the observed time the lowest unemployment rate in European Union was equa
 One can chose any country and get country-specific report
 <font>
 ```{r pressure, echo=FALSE,results='hide'}
-country <- "POL"
+country <- "AUS"
 rate <- read.csv("Dane/MW_new.csv")
 rate <- rate[c(1, 3, 6, 7)]
 rate <- transform(rate, TIME = as.Date(as.yearmon(TIME)))
@@ -544,6 +545,3 @@ arima2 <- fit2 %>%
 
 plot_grid(arima1, arima2)
 ```
-
-We can see that the residuals are normally distributed and we can forecast.
-By both models unemployment will go down and it is in line with our expectations.
