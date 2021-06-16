@@ -27,3 +27,4 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 RR_report_Kondratovych_Slabon-1.R
+kk.R
