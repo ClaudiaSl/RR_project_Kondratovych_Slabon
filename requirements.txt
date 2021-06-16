@@ -1,2 +1,28 @@
 List of requirements:
 RStudio version: 1.2.5033
+Libraries:
+ggthemes
+tibble
+lubridate
+ggpubr
+reshape
+scales
+plotly
+tidyverse
+rvest
+rlist
+stringi
+htmltab
+zoo
+dplyr
+tidyr
+xts
+dygraphs
+RColorBrewer
+ggplot2
+rgdal
+sf
+readxl
+viridis
+cowplot
+forecast
